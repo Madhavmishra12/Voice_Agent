@@ -19,5 +19,5 @@ jobs:
           # Config files location
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          # Use GitHub's run-scoped token; no Dograh or stored PAT required.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use a repository PAT so Release Please can open a release PR.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
