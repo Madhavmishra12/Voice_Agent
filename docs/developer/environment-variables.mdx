@@ -22,6 +22,7 @@ The relevant required variables for each mode are noted in the descriptions belo
 |---|---|---|
 | `ENVIRONMENT` | `local` | Runtime environment. Affects logging and behaviour. One of `local`, `production`, `test` |
 | `DEPLOYMENT_MODE` | `oss` | Deployment mode. Use `oss` for self-hosted |
+| `ENABLE_DOGRAH_MANAGED_SERVICES` | `false` | Set to `true` only if you want Dograh-hosted models and SIP. When false, managed provisioning is skipped and model configurations that use the Dograh provider are rejected; self-hosted deployments should configure their own model and telephony connections in the UI |
 | `AUTH_PROVIDER` | `local` | Authentication provider. `local` (default) uses the built-in email/password flow. Set to `stack` to delegate to Stack Auth for social login — see [Authentication](/deployment/authentication) for the full setup |
 
 ---

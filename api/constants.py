@@ -62,6 +62,12 @@ DATABASE_URL = os.environ["DATABASE_URL"]
 REDIS_URL = os.environ["REDIS_URL"]
 
 DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "oss")
+# Self-hosted installs use provider connections configured by the operator. Keep
+# Dograh-hosted model/SIP provisioning opt-in so a private deployment never
+# contacts Dograh's managed services during signup or login by default.
+ENABLE_DOGRAH_MANAGED_SERVICES = (
+    os.getenv("ENABLE_DOGRAH_MANAGED_SERVICES", "false").lower() == "true"
+)
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()
 ]

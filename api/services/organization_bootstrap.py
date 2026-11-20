@@ -17,7 +17,11 @@ from datetime import timedelta
 
 from loguru import logger
 
-from api.constants import AUTH_PROVIDER, DEPLOYMENT_MODE
+from api.constants import (
+    AUTH_PROVIDER,
+    DEPLOYMENT_MODE,
+    ENABLE_DOGRAH_MANAGED_SERVICES,
+)
 from api.db import db_client
 from api.db.organization_configuration_client import LEASE_COMPLETED
 from api.enums import OrganizationConfigurationKey
@@ -62,6 +66,12 @@ async def ensure_organization_bootstrapped(
     Never raises. A provisioning failure must not fail authentication — the
     caller is a legitimately authenticated user either way.
     """
+    if not ENABLE_DOGRAH_MANAGED_SERVICES:
+        # Self-hosted deployments bring their own model and telephony accounts.
+        # Do not call Dograh's MPS or create a managed default behind the user's
+        # back; they can configure provider connections in the UI instead.
+        return True
+
     try:
         state = await db_client.get_configuration_values(
             organization_id, [_BOOTSTRAP_KEY, _CATALOG_DEFAULT_KEY]

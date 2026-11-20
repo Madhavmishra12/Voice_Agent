@@ -16,12 +16,10 @@ import { MODE_LABELS, ROLE_LABELS } from "./types";
 
 export type ConfigurationFieldsDensity = "full" | "compact";
 
-// GrowQR manages its services; only these settings are the user's to change,
-// listed in the order they are shown.
+// Retained for reading older managed configurations so users can migrate them.
 const DOGRAH_FIELDS: [ServiceRole, string[]][] = [["tts", ["voice", "speed"]], ["stt", ["language", "language_hints"]], ["llm", ["model", "temperature"]]];
 const MODES: { value: ConfigurationEditorMode; description: string }[] = [
     { value: "realtime", description: "One speech-to-speech model listens and replies." },
-    { value: "dograh", description: "GrowQR runs the transcriber, LLM and voice for you." },
     { value: "cascade", description: "Pick your own LLM, STT and TTS providers." },
 ];
 const SERVICE_TAB = "-mb-px h-auto min-w-0 flex-1 flex-col items-start gap-0.5 rounded-none border-0 border-b-2 border-transparent px-3 py-2.5 text-left sm:px-4 text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent";
@@ -47,7 +45,7 @@ function listNames(names: string[]): string | undefined {
 
 function ModeChoice({ value, onChange }: { value: ConfigurationEditorMode; onChange: (value: string) => void }) {
     const id = useId();
-    return <RadioGroupPrimitive.Root aria-label="Mode" value={value} onValueChange={onChange} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    return <RadioGroupPrimitive.Root aria-label="Mode" value={value} onValueChange={onChange} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {MODES.map(option => <RadioGroupPrimitive.Item key={option.value} value={option.value} aria-labelledby={`${id}-${option.value}`} aria-describedby={`${id}-${option.value}-description`}
             className="group flex items-start gap-3 rounded-lg border bg-card p-3 text-left outline-none transition-[color,border-color,box-shadow] hover:border-foreground/25 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:border-primary data-[state=checked]:ring-1 data-[state=checked]:ring-primary">
             <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-input group-data-[state=checked]:border-primary">
@@ -64,8 +62,7 @@ function ModeChoice({ value, onChange }: { value: ConfigurationEditorMode; onCha
 /**
  * The one editor for a model configuration spec.
  *
- * The mode comes first: Realtime, GrowQR or BYOK. GrowQR shows the few
- * settings GrowQR leaves to the user. Realtime and BYOK show one tab per
+ * The mode comes first: Realtime or BYOK. Realtime and BYOK show one tab per
  * service, each naming its provider so the whole setup reads at a glance,
  * with the provider and its settings inside. Every provider list ends with
  * a way to add a provider in place.
@@ -96,6 +93,7 @@ export function ConfigurationFields({ configuration, catalog, connections, onCha
     const id = useId();
     const mode = configuration.mode === "realtime" || configuration.llm.provider_connection_uuid
         ? configurationMode(configuration, connections) : unconfiguredMode;
+    const legacyManagedConfiguration = mode === "dograh";
     const dograhConnections = connections.filter(connection => connection.is_active && connection.provider === "dograh");
     const roles = (mode === "realtime" ? ["realtime", "llm", "embeddings"] as ServiceRole[] : ["llm", "stt", "tts", "embeddings"] as ServiceRole[])
         .filter(role => !compact || role !== "embeddings");
@@ -239,6 +237,9 @@ export function ConfigurationFields({ configuration, catalog, connections, onCha
     };
 
     return <div ref={root} className={compact ? "space-y-3" : "space-y-4"}>
+        {legacyManagedConfiguration && <p role="status" className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+            This configuration still uses GrowQR-managed models. Choose BYOK below and save your own provider connections to move it to your account.
+        </p>}
         <ModeChoice value={mode} onChange={changeMode} />
         {mode === "dograh" ? dograhPanel : <Tabs value={currentRole} onValueChange={value => setActiveRole(value as ServiceRole)} className="gap-0 overflow-hidden rounded-lg border bg-card">
             <TabsList aria-label="Services" className="flex h-auto w-full justify-start rounded-none border-b bg-transparent p-0">

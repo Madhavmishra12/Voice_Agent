@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
+from api.constants import ENABLE_DOGRAH_MANAGED_SERVICES
 from api.db import db_client
 from api.enums import OrganizationConfigurationKey
 from api.schemas.ai_model_configuration import EffectiveAIModelConfiguration
@@ -507,6 +508,11 @@ async def _resolve_spec(
         if uuid not in connections:
             connections[uuid] = await _connection(organization_id, uuid)
         row = connections[uuid]
+        if row.provider == "dograh" and not ENABLE_DOGRAH_MANAGED_SERVICES:
+            raise _invalid(
+                "Dograh-managed model services are disabled on this server. "
+                "Select BYOK and connect your own model and speech providers."
+            )
         if (
             key == "llm"
             and spec.llm_fallback

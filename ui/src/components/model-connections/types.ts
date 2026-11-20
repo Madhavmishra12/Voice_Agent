@@ -77,7 +77,7 @@ export type ConfigurationSpec = Omit<ApiConfigurationSpec, ServiceRole | "llm_fa
 
 export type ConfigurationEditorMode = "dograh" | "cascade" | "realtime";
 export const MODE_LABELS: Record<ConfigurationEditorMode, string> = {
-    dograh: "GrowQR", cascade: "BYOK", realtime: "Realtime",
+    dograh: "Managed (legacy)", cascade: "BYOK", realtime: "Realtime",
 };
 
 export type NamedModelConfiguration = Omit<NamedModelConfigurationResponse, "configuration"> & {

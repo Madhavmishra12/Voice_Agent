@@ -192,7 +192,15 @@ Your application will be available at the URL the setup script printed at the en
 With a self-signed certificate your browser shows a security warning you can safely accept. With the sslip.io Let's Encrypt certificate there is no warning.
 </Note>
 
-You should be able to create and test a voice agent now. 
+You should be able to create and test a voice agent now.
+
+### Use your own model provider accounts
+
+Self-hosted deployments do not provision Dograh-managed models or SIP by default. Existing configurations that still use Dograh-managed models will be rejected until you switch them to BYOK. In the app, open **Models** → **Provider Connections**, add your provider account using its API key, then set the organization or workflow configuration to **BYOK**. Configure STT and TTS provider connections as well as the LLM; phone calls need all three unless you select a realtime speech model. Provider keys are stored by the application and are not Docker deployment secrets.
+
+For a self-hosted OpenAI-compatible LLM or speech endpoint, select **Local Models (Speaches)** and enter an endpoint reachable from the API container. For Docker deployments, `localhost` refers to the API container itself; use the model service's Compose service name or the host gateway address instead. Add the API key only if that endpoint requires one.
+
+Set `ENABLE_DOGRAH_MANAGED_SERVICES=true` in the deployment `.env` only if you explicitly want Dograh-managed model and SIP provisioning.
 
 ### Configuration Notes
 
