@@ -1,3 +1,11 @@
+## 1.49.1 (2026-11-20)
+
+<!-- Release notes generated using configuration in .github/release.yml at 3c2303748bc01285b420b87af9fa8fb18cd1afbb -->
+
+
+
+**Full Changelog**: https://github.com/Madhavmishra12/Voice_Agent/compare/dograh-v1.49.0...dograh-v1.49.1
+
 # Changelog
 
 ## 1.49.0 (2026-10-12)
