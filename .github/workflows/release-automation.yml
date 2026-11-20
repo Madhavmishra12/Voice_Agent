@@ -1,23 +1,143 @@
-name: Release Please
+name: Direct Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
+
+concurrency:
+  group: direct-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release-please:
+  publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: actions/checkout@v4
         with:
-          # Config files location
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          # Use a repository PAT so Release Please can open a release PR.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Bump version and publish release
+        env:
+          BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin main --tags
+          if [[ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]]; then
+            echo "::error::main changed after this workflow was queued; start a fresh release run."
+            exit 1
+          fi
+
+          current_version="$(python3 -c 'import json; print(json.load(open(".release-please-manifest.json"))["."])')"
+          if [[ ! "$current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unsupported version in .release-please-manifest.json: $current_version"
+            exit 1
+          fi
+
+          previous_tag="$(git describe --tags --match 'dograh-v[0-9]*' --abbrev=0)"
+          if [[ "$previous_tag" != "dograh-v$current_version" ]]; then
+            echo "::error::Manifest version $current_version does not match latest tag $previous_tag."
+            exit 1
+          fi
+
+          IFS=. read -r major minor patch <<< "$current_version"
+          case "$BUMP" in
+            patch) patch=$((patch + 1)) ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            *) echo "::error::Unknown bump type: $BUMP"; exit 1 ;;
+          esac
+          new_version="$major.$minor.$patch"
+          tag="dograh-v$new_version"
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists."
+            exit 1
+          fi
+
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="$tag" \
+            -f target_commitish="$GITHUB_SHA" \
+            -f previous_tag_name="$previous_tag" \
+            --jq '.body' > "$RUNNER_TEMP/release-notes.md"
+
+          export CURRENT_VERSION="$current_version"
+          export NEW_VERSION="$new_version"
+          export RELEASE_DATE="$(date -u +%F)"
+          export RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          current = os.environ["CURRENT_VERSION"]
+          new = os.environ["NEW_VERSION"]
+
+          manifest_path = Path(".release-please-manifest.json")
+          manifest = json.loads(manifest_path.read_text())
+          if manifest.get(".") != current:
+              raise SystemExit("Manifest version changed unexpectedly")
+          manifest["."] = new
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+
+          package_path = Path("ui/package.json")
+          package = json.loads(package_path.read_text())
+          if package.get("version") != current:
+              raise SystemExit("ui/package.json version does not match the manifest")
+          package["version"] = new
+          package_path.write_text(json.dumps(package, indent=2) + "\n")
+
+          project_path = Path("api/pyproject.toml")
+          project_text = project_path.read_text()
+          project_start = project_text.find("[project]")
+          if project_start < 0:
+              raise SystemExit("[project] section is missing from api/pyproject.toml")
+          project_end = project_text.find("\n[", project_start + len("[project]"))
+          if project_end < 0:
+              project_end = len(project_text)
+          project_section = project_text[project_start:project_end]
+          version_pattern = re.compile(r"(?m)^(version\s*=\s*)[\"']([^\"']+)[\"']\s*$")
+          match = version_pattern.search(project_section)
+          if not match or match.group(2) != current:
+              raise SystemExit("api/pyproject.toml version does not match the manifest")
+          project_section = version_pattern.sub(
+              lambda found: found.group(1) + f'"{new}"', project_section, count=1
+          )
+          project_path.write_text(project_text[:project_start] + project_section + project_text[project_end:])
+
+          notes = Path(os.environ["RELEASE_NOTES_FILE"]).read_text().strip()
+          changelog_path = Path("CHANGELOG.md")
+          existing = changelog_path.read_text() if changelog_path.exists() else ""
+          section = f"## {new} ({os.environ['RELEASE_DATE']})\n\n{notes}\n\n"
+          changelog_path.write_text(section + existing.lstrip())
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .release-please-manifest.json CHANGELOG.md api/pyproject.toml ui/package.json
+          git commit -m "chore(main): release dograh $new_version"
+          release_commit="$(git rev-parse HEAD)"
+          git tag -a "$tag" -m "$tag"
+          git push origin HEAD:refs/heads/main "refs/tags/$tag"
+
+          gh release create "$tag" \
+            --verify-tag \
+            --title "dograh $new_version" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+
+          echo "Published $tag from $release_commit"
