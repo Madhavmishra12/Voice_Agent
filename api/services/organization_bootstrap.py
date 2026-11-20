@@ -1,4 +1,4 @@
-"""Once-per-organization provisioning of Dograh-managed services.
+"""Optional once-per-organization provisioning of Dograh-managed services.
 
 Bootstrapping mints an MPS service key, stores it as the organization's
 default model configuration, and provisions owner-scoped managed SIP
@@ -6,7 +6,8 @@ connectivity. Service-key minting is not idempotent upstream —
 ``create_service_key`` is a plain POST — so concurrent callers must not both
 run it.
 
-Entry is therefore guarded two ways: the organization's own configuration state
+Provisioning is disabled by default for self-hosted installs. When enabled, the
+entry is guarded two ways: the organization's own configuration state
 decides whether work is needed at all, and a database lease decides which
 single caller performs it. Keying on state rather than on a create-time flag is
 what makes a failed attempt retryable; the lease is what keeps the retry from
@@ -51,11 +52,12 @@ async def ensure_organization_bootstrapped(
     *,
     created_by: str,
 ) -> bool:
-    """Ensure an organization has its Dograh-managed model services and SIP.
+    """Optionally ensure an organization has Dograh-managed models and SIP.
 
-    Cheap enough to call on every authenticated request: an organization that
-    has completed bootstrap costs a single indexed read. Returns True when the
-    organization is fully provisioned.
+    When managed services are disabled, returns immediately and does not make
+    network calls. Otherwise, an organization that has completed bootstrap
+    costs a single indexed read. Returns True when provisioning is complete or
+    intentionally disabled.
 
     Each piece is claimed against its own state, never against a create-time
     flag, so this both completes a half-finished bootstrap and backfills

@@ -335,6 +335,9 @@ cat > .env << ENV_EOF
 # Remote deployments run with production signaling and HTTPS defaults
 ENVIRONMENT=production
 
+# Self-hosted installs use provider connections configured in the UI by default.
+ENABLE_DOGRAH_MANAGED_SERVICES=false
+
 # Canonical public host/base URL for this install. SERVER_IP stays the raw IP
 # (coturn external-ip and validation need it); PUBLIC_HOST is the sslip.io
 # hostname when using a trusted cert, otherwise the IP. BACKEND_API_ENDPOINT,
